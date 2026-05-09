@@ -1,0 +1,16 @@
+/* ============================================================
+   SoundNest – auth.css
+   CSS khusus halaman Login & Register
+   Letakkan di: public/css/auth.css
+   ============================================================ */
+
+body.auth-page {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+} 
