@@ -15,5 +15,11 @@ foreach ($storageDirs as $dir) {
     }
 }
 
+// Force Laravel to use /tmp for bootstrap cache
+putenv('APP_SERVICES_CACHE=/tmp/storage/bootstrap/cache/services.php');
+putenv('APP_PACKAGES_CACHE=/tmp/storage/bootstrap/cache/packages.php');
+putenv('APP_CONFIG_CACHE=/tmp/storage/bootstrap/cache/config.php');
+putenv('APP_ROUTES_CACHE=/tmp/storage/bootstrap/cache/routes.php');
+
 // Forward Vercel requests to normal index.php
 require __DIR__ . '/../public/index.php';
