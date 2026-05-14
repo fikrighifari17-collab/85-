@@ -10,7 +10,232 @@ body.auth-page {
   font-family: var(--font);
   min-height: 100vh;
   display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 20px;
+  position: relative;
+  overflow-y: auto;
+}
+
+/* Watercolor Blobs & Music Notes */
+.auth-bg-decor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Corner Watercolor Splashes - Unique Shapes & Independent Floating */
+.auth-bg-decor .blob {
+  position: absolute;
+  filter: blur(60px);
+  opacity: 0.35;
+  mix-blend-mode: plus-lighter;
+}
+
+.blob-tl {
+  top: -15%; left: -15%; width: 50vw; height: 50vh;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  animation: float-tl 22s infinite alternate ease-in-out;
+}
+.blob-tl-2 {
+  top: -5%; left: -5%; width: 30vw; height: 30vh;
+  background: radial-gradient(circle, var(--accent2) 0%, transparent 70%);
+  border-radius: 50%;
+  opacity: 0.2;
+  animation: float-br 18s infinite alternate ease-in-out;
+}
+
+.blob-tr {
+  top: -20%; right: -20%; width: 55vw; height: 55vh;
+  background: radial-gradient(circle, var(--bg4) 0%, transparent 70%);
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  animation: float-tr 28s infinite alternate ease-in-out;
+}
+
+.blob-bl {
+  bottom: -25%; left: -20%; width: 60vw; height: 60vh;
+  background: radial-gradient(circle, var(--bg3) 0%, transparent 70%);
+  border-radius: 40% 60% 70% 30% / 40% 40% 60% 60%;
+  animation: float-bl 32s infinite alternate ease-in-out;
+}
+
+.blob-br {
+  bottom: -15%; right: -15%; width: 45vw; height: 45vh;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%;
+  animation: float-br 25s infinite alternate ease-in-out;
+}
+
+@keyframes float-tl { 0% { transform: translate(0,0) rotate(0deg); } 100% { transform: translate(60px, 30px) rotate(15deg); } }
+@keyframes float-tr { 0% { transform: translate(0,0) rotate(0deg); } 100% { transform: translate(-40px, 60px) rotate(-20deg); } }
+@keyframes float-bl { 0% { transform: translate(0,0) rotate(0deg); } 100% { transform: translate(30px, -50px) rotate(10deg); } }
+@keyframes float-br { 0% { transform: translate(0,0) rotate(0deg); } 100% { transform: translate(-70px, -30px) rotate(-12deg); } }
+
+/* Hand-drawn Music Notes in Corners */
+.floating-note {
+  position: absolute;
+  color: var(--accent);
+  opacity: 0.2;
+  filter: drop-shadow(0 0 8px var(--accent));
+  pointer-events: none;
+  animation: note-bounce 15s infinite alternate ease-in-out;
+}
+
+@keyframes note-bounce {
+  0% { transform: scale(1) rotate(0deg); }
+  100% { transform: scale(1.1) rotate(5deg); }
+}
+
+.note-1 { top: 8%; left: 12%; width: 90px; animation-delay: -2s; }
+.note-2 { top: 15%; right: 10%; width: 70px; animation-delay: -5s; transform: rotate(20deg); }
+.note-3 { bottom: 12%; left: 5%; width: 100px; animation-delay: -8s; }
+.note-4 { bottom: 10%; right: 15%; width: 80px; animation-delay: -1s; }
+.note-5 { top: 40%; left: 5%; width: 60px; animation-delay: -10s; opacity: 0.1; }
+.note-6 { top: 30%; right: 20%; width: 50px; animation-delay: -4s; opacity: 0.1; }
+.note-7 { bottom: 40%; right: 5%; width: 65px; animation-delay: -7s; opacity: 0.1; }
+
+.auth-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 25px var(--border);
+  z-index: 10;
+  backdrop-filter: blur(15px);
+  position: relative;
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+.logo {
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-} 
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.logo svg {
+  width: 20px;
+  height: 20px;
+  color: var(--primary);
+}
+
+h2 {
+  text-align: center;
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.sub {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.form-group {
+  margin-bottom: 8px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--muted);
+}
+
+.input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--bg2);
+}
+
+.btn-primary {
+  width: 100%;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 6px;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.alt {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.alt a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.password-wrapper {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.password-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.alert-success { background: rgba(52, 211, 153, 0.1); color: var(--success); border: 1px solid rgba(52, 211, 153, 0.2); padding: 8px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; text-align: center; }

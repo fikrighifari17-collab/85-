@@ -6,7 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class Music extends Model
 {
-    protected $fillable = ['user_id','title','original_name','file_path','file_size','duration'];
+    protected $fillable = ['user_id','title','artist','album','genre','original_name','file_path','cover_path','file_size','duration'];
+
+    public function getCoverUrlAttribute(): string
+    {
+        if ($this->cover_path) {
+            return \Storage::disk('public')->url($this->cover_path);
+        }
+        return asset('img/default-cover.png');
+    }
 
     public function user()
     {

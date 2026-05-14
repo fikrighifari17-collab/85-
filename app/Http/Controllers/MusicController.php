@@ -6,6 +6,7 @@ use App\Models\Music;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse; // Perbaikan: 'use', bukan 'uses'
@@ -22,17 +23,27 @@ class MusicController extends Controller
 
         // Mengambil musik milik user atau milik admin agar muncul di semua akun[cite: 1]
         $music = Music::where(function($query) use ($userId, $adminId) {
-            $query->where('user_id', $userId)
-                  ->orWhere('user_id', $adminId);
+            $query->where('user_id', $userId);
+            if ($userId !== $adminId) {
+                $query->orWhere('user_id', $adminId);
+            }
         })->latest()->get();
 
-        return view('music.index', compact('music'));
+        $artists = Music::where('user_id', $userId)->whereNotNull('artist')->distinct()->pluck('artist');
+        $albums  = Music::where('user_id', $userId)->whereNotNull('album')->distinct()->pluck('album');
+        $genres  = Music::where('user_id', $userId)->whereNotNull('genre')->distinct()->pluck('genre');
+
+        return view('music.index', compact('music', 'artists', 'albums', 'genres'));
     }
 
     public function upload(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:mp3,mp4,m4a,ogg,wav,flac,mpeg|max:51200',
+            'file'   => 'required|file|mimes:mp3,mp4,m4a,ogg,wav,flac,mpeg|max:51200',
+            'title'  => 'nullable|string|max:200',
+            'artist' => 'nullable|string|max:200',
+            'album'  => 'nullable|string|max:200',
+            'cover'  => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
         $file         = $request->file('file');
@@ -41,14 +52,13 @@ class MusicController extends Controller
         $tmpInput     = $file->getRealPath();
         $ffmpegAvailable = $this->ffmpegAvailable();
 
-        // Logika konversi FFmpeg dipertahankan sepenuhnya[cite: 1]
+        // FFmpeg conversion logic
         if ($extension === 'mp3' || !$ffmpegAvailable) {
             $storagePath = 'music/' . Auth::id() . '/' . Str::uuid() . '.mp3';
             Storage::disk('local')->put($storagePath, file_get_contents($tmpInput));
             $duration = $ffmpegAvailable ? $this->getDuration($tmpInput) : 0;
         } else {
             $tmpOutput = sys_get_temp_dir() . '/' . Str::uuid() . '.mp3';
-            // Konversi file non-mp3 ke MP3[cite: 1]
             $cmd = sprintf(
                 'ffmpeg -y -i %s -vn -acodec libmp3lame -q:a 2 %s 2>&1',
                 escapeshellarg($tmpInput),
@@ -57,7 +67,7 @@ class MusicController extends Controller
             exec($cmd, $output, $exitCode);
 
             if ($exitCode !== 0 || !file_exists($tmpOutput)) {
-                return back()->withErrors(['file' => 'Konversi gagal.']);
+                return back()->withErrors(['file' => 'Conversion failed.']);
             }
 
             $storagePath = 'music/' . Auth::id() . '/' . Str::uuid() . '.mp3';
@@ -68,13 +78,44 @@ class MusicController extends Controller
 
         $fileSize = Storage::disk('local')->size($storagePath);
 
+        // Process cover if uploaded
+        $coverPath = null;
+        if ($request->hasFile('cover')) {
+            $coverPath = $request->file('cover')->store('covers', 'public');
+        } else {
+            // Auto-inherit cover if artist & album match an existing song in user library
+            if ($request->artist && $request->album) {
+                $existingCover = Auth::user()->music()
+                    ->where('artist', $request->artist)
+                    ->where('album', $request->album)
+                    ->whereNotNull('cover_path')
+                    ->where('cover_path', '!=', '')
+                    ->orderBy('created_at', 'desc')
+                    ->value('cover_path');
+
+                if ($existingCover) {
+                    $coverPath = $existingCover;
+                }
+            }
+        }
+
+        $genre = $request->genre ?: $this->identifyGenre($request->artist, $request->title ?: $originalName, Storage::disk('local')->path($storagePath));
+
         Auth::user()->music()->create([
-            'title'         => $originalName,
+            'title'         => $request->title ?? $originalName,
+            'artist'        => $request->artist,
+            'album'         => $request->album,
+            'genre'         => $genre,
             'original_name' => $file->getClientOriginalName(),
             'file_path'     => $storagePath,
+            'cover_path'    => $coverPath,
             'file_size'     => $fileSize,
             'duration'      => $duration,
         ]);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Music uploaded successfully!']);
+        }
 
         return back()->with('success', 'Musik berhasil diupload!');
     }
@@ -84,17 +125,43 @@ class MusicController extends Controller
      */
     public function update(Request $request, Music $music)
     {
-        // Hanya pemilik asli yang bisa mengubah judul lagu mereka[cite: 1]
         if ($music->user_id !== Auth::id()) abort(403);
         
-        $data = $request->validate(['title' => 'required|string|max:200']);
-        $music->update($data);
+        $data = $request->validate([
+            'title'  => 'required|string|max:200',
+            'artist' => 'nullable|string|max:200',
+            'album'  => 'nullable|string|max:200',
+            'genre'  => 'nullable|string|max:200',
+            'cover'  => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
 
-        if ($request->ajax()) {
-            return response()->json(['success' => true, 'title' => $music->title]);
+        // Auto-identify genre if missing during update
+        if (empty($data['genre'])) {
+            $data['genre'] = $this->identifyGenre($data['artist'], $data['title'], Storage::disk('local')->path($music->file_path));
         }
 
-        return back()->with('success', 'Judul musik berhasil diperbarui!');
+        if ($request->hasFile('cover')) {
+            // Delete old cover if exists
+            if ($music->cover_path) {
+                Storage::disk('public')->delete($music->cover_path);
+            }
+            $data['cover_path'] = $request->file('cover')->store('covers', 'public');
+        }
+
+        $music->update($data);
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true, 
+                'title' => $music->title,
+                'artist' => $music->artist,
+                'album' => $music->album,
+                'genre' => $music->genre,
+                'cover_url' => $music->cover_url
+            ]);
+        }
+
+        return back()->with('success', 'Metadata musik berhasil diperbarui!');
     }
 
     public function rename(Request $request, Music $music)
@@ -157,6 +224,42 @@ class MusicController extends Controller
             }
             fclose($fp);
         }, $status, $headers);
+    }
+
+    private function identifyGenre($artist, $title, $filePath): ?string
+    {
+        // 1. Try getID3
+        try {
+            $getID3 = new \getID3;
+            $fileInfo = $getID3->analyze($filePath);
+            
+            // Try different tag formats
+            $genre = $fileInfo['tags']['id3v2']['genre'][0] 
+                  ?? $fileInfo['tags']['id3v1']['genre'][0]
+                  ?? $fileInfo['tags']['quicktime']['genre'][0]
+                  ?? null;
+
+            if ($genre) return $genre;
+        } catch (\Exception $e) {}
+
+        // 2. Fallback to iTunes API
+        if ($artist && $title) {
+            try {
+                $response = Http::timeout(3)->get('https://itunes.apple.com/search', [
+                    'term'   => $artist . ' ' . $title,
+                    'entity' => 'song',
+                    'limit'  => 1
+                ]);
+                if ($response->successful()) {
+                    $results = $response->json('results');
+                    if (!empty($results)) {
+                        return $results[0]['primaryGenreName'];
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+
+        return null;
     }
 
     private function ffmpegAvailable(): bool
